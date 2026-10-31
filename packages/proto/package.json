@@ -1,0 +1,16 @@
+{
+  "name": "@g1/proto",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "由 proto/g1/review/v1/review.proto 生成的 TypeScript 类型和服务描述（npm run generate）",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "2.15.0"
+  }
+}

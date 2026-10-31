@@ -1,0 +1,16 @@
+{
+  "name": "@g1/core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "与界面和传输无关的纯函数：关节表、限位检查、轨迹编解码、跟踪模型",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "fast-xml-parser": "5.11.1"
+  }
+}

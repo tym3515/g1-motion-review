@@ -1,0 +1,7 @@
+# Cloudflare Pages 默认已带 Access-Control-Allow-Origin: *，作品集主站才能用 micro-app 跨域加载本站；
+# 不要设置 X-Frame-Options / frame-ancestors 拒绝嵌入，主站的 iframe 方式和弹出窗口都依赖它。
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/data/*
+  Cache-Control: public, max-age=86400

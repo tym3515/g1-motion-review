@@ -1,0 +1,26 @@
+[
+ {
+  "id": "dance1_subject2",
+  "name": "舞蹈 1",
+  "file": "motions/dance1_subject2.f32.txt",
+  "fps": 30,
+  "frames": 3945,
+  "cols": 36
+ },
+ {
+  "id": "fightAndSports1_subject1",
+  "name": "格斗与运动",
+  "file": "motions/fightAndSports1_subject1.f32.txt",
+  "fps": 30,
+  "frames": 7355,
+  "cols": 36
+ },
+ {
+  "id": "jumps1_subject1",
+  "name": "跳跃",
+  "file": "motions/jumps1_subject1.f32.txt",
+  "fps": 30,
+  "frames": 7334,
+  "cols": 36
+ }
+]

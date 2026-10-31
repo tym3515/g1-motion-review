@@ -1,0 +1,48 @@
+{
+  "name": "g1-motion-review",
+  "private": true,
+  "version": "0.1.0",
+  "description": "宇树 G1 动作审核台：proto 定义接口，React + TypeScript 前端，Node 后端与浏览器 Worker 共用同一份服务实现",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tym3515/g1-motion-review.git"
+  },
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "generate": "buf generate",
+    "lint:proto": "buf lint",
+    "dev": "npm run dev -w @g1/web",
+    "dev:server": "npm run dev -w @g1/server",
+    "mock:ros": "tsx tools/mock-rosbridge.ts",
+    "build": "npm run build -w @g1/web",
+    "deploy": "npm run build && wrangler pages deploy apps/web/dist --project-name=jason-g1-review --branch master --commit-dirty=true",
+    "deploy:preview": "npm run build && wrangler pages deploy apps/web/dist --project-name=jason-g1-review --branch preview --commit-dirty=true",
+    "pages:create": "wrangler pages project create jason-g1-review --production-branch master",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "1.73.0",
+    "@bufbuild/protoc-gen-es": "2.15.0",
+    "@eslint/js": "^10.0.0",
+    "@types/node": "^24.0.0",
+    "@types/ws": "8.18.1",
+    "eslint": "10.11.0",
+    "eslint-plugin-react-hooks": "^7.0.0",
+    "globals": "^16.0.0",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.1",
+    "vitest": "5.0.2",
+    "wrangler": "^4.147.0",
+    "ws": "8.22.0"
+  }
+}

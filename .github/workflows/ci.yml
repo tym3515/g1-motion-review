@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: proto 规范检查
+        run: npx buf lint
+
+      - name: 生成代码与 proto 一致
+        run: |
+          npx buf generate
+          git diff --exit-code -- packages/proto/src/gen
+
+      - name: proto 兼容性（和 main 分支比，不允许破坏性改动）
+        if: github.event_name == 'pull_request'
+        run: npx buf breaking --against "https://github.com/${{ github.repository }}.git#branch=main"
+
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

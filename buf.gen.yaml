@@ -1,0 +1,11 @@
+version: v2
+inputs:
+  - directory: proto
+plugins:
+  # protoc-gen-es v2 同时生成消息类型和服务描述，Connect v2 直接用它们创建客户端和服务端
+  - local: protoc-gen-es
+    out: packages/proto/src/gen
+    opt:
+      - target=ts
+      - import_extension=js
+clean: true

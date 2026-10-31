@@ -1,0 +1,19 @@
+{
+  "name": "@g1/service",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "MotionReviewService 的实现，只依赖一个数据源接口；Node 后端、浏览器 Worker 和测试共用",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "2.15.0",
+    "@connectrpc/connect": "2.2.0",
+    "@g1/core": "0.1.0",
+    "@g1/proto": "0.1.0"
+  }
+}

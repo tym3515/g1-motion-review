@@ -1,0 +1,217 @@
+syntax = "proto3";
+
+// 动作审核服务。前端、Node 后端、浏览器 Worker 和测试都从这份定义生成代码。
+package g1.review.v1;
+
+// 动作审核：读取机器人和动作，按 URDF 限位做逐帧检查，并推送"真机"关节状态用于对比。
+service MotionReviewService {
+  // 机器人描述：关节顺序和 URDF 限位。
+  rpc GetRobot(GetRobotRequest) returns (GetRobotResponse);
+  // 服务端可用的动作列表。
+  rpc ListClips(ListClipsRequest) returns (ListClipsResponse);
+  // 取一段动作的完整轨迹。
+  rpc GetClip(GetClipRequest) returns (GetClipResponse);
+  // 按规则审核一段轨迹，返回结论、问题段和逐帧状态。
+  rpc Analyze(AnalyzeRequest) returns (AnalyzeResponse);
+  // 服务端流：模拟真机跟踪这段轨迹，按固定频率推送关节状态，结构对应 sensor_msgs/JointState。
+  rpc StreamJointStates(StreamJointStatesRequest) returns (stream StreamJointStatesResponse);
+}
+
+// ---------- 基础类型 ----------
+
+// 单个旋转关节的 URDF 限位，单位为弧度、弧度每秒、牛米。
+message JointLimit {
+  string name = 1;
+  double lower = 2;
+  double upper = 3;
+  double velocity = 4;
+  double effort = 5;
+}
+
+message ClipInfo {
+  string id = 1;
+  string name = 2;
+  float fps = 3;
+  uint32 frame_count = 4;
+  bool has_root = 5;
+  // 数据来源说明，比如数据集名称和许可证。
+  string source = 6;
+}
+
+// 时间轴事件，与表情屏等外设共用：{"t":1.5,"type":"face","name":"happy"}。
+message TimelineEvent {
+  double t = 1;
+  string type = 2;
+  string name = 3;
+  // 其余字段原样保留为 JSON 字符串。
+  string payload_json = 4;
+}
+
+// 一段关节轨迹。大数组用 float32 小端字节打包，比 repeated double 小一半以上。
+message Trajectory {
+  float fps = 1;
+  uint32 frame_count = 2;
+  // 列顺序，与 positions 中每帧的排列一致。
+  repeated string joint_names = 3;
+  // frame_count × joint_names 个 float32，弧度，按帧展开。
+  bytes positions = 4;
+  // 可选：frame_count × 7 个 float32，依次为 x y z qx qy qz qw（URDF 世界系，Z 朝上）。
+  bytes root_poses = 5;
+  repeated TimelineEvent events = 6;
+}
+
+// ---------- GetRobot ----------
+
+message GetRobotRequest {}
+
+message GetRobotResponse {
+  string name = 1;
+  // 按动作数据的列顺序排列的 29 个旋转关节。
+  repeated JointLimit joints = 2;
+  // URDF 文件相对数据根目录的路径，前端据此加载三维模型。
+  string urdf_path = 3;
+}
+
+// ---------- ListClips / GetClip ----------
+
+message ListClipsRequest {}
+
+message ListClipsResponse {
+  repeated ClipInfo clips = 1;
+}
+
+message GetClipRequest {
+  string clip_id = 1;
+}
+
+message GetClipResponse {
+  ClipInfo info = 1;
+  Trajectory trajectory = 2;
+}
+
+// ---------- Analyze ----------
+
+// 不传 rules 时使用默认值：安全余量 5°，速度系数 0.5。
+message ReviewRules {
+  // 距离限位小于该值记为贴近限位，弧度。
+  double margin_rad = 1;
+  // 速度上限 = URDF velocity × 该系数，取值 (0, 1]；0 或负数按默认值 0.5 处理。
+  double velocity_factor = 2;
+  // 叠加测试偏差：让踝、肘、腰各越限 6–10°，用于验证超限高亮。
+  bool inject_test_deviation = 3;
+}
+
+message AnalyzeRequest {
+  oneof source {
+    // 审核服务端已有的动作。
+    string clip_id = 1;
+    // 审核客户端上传的轨迹，比如从本地导入的 CSV。
+    Trajectory trajectory = 2;
+  }
+  ReviewRules rules = 3;
+  // 为 true 时返回逐帧逐关节状态，前端用来给模型和时间轴着色；批量审核时可关掉。
+  bool include_frame_status = 4;
+}
+
+enum Verdict {
+  VERDICT_UNSPECIFIED = 0;
+  // 没有超限，也没有贴近限位。
+  VERDICT_PASS = 1;
+  // 没有超限，但有贴近限位的帧。
+  VERDICT_PASS_NEAR_LIMIT = 2;
+  // 有位置或速度超限。
+  VERDICT_FAIL = 3;
+}
+
+// 某个关节在一个问题段里的最严重情况。
+message JointHit {
+  uint32 joint_index = 1;
+  string joint_name = 2;
+  // 超出限位的最大值，弧度；0 表示位置未超限。
+  double position_excess = 3;
+  // 该段内的最大角速度绝对值，弧度每秒；0 表示速度未超限。
+  double peak_velocity = 4;
+  // 生效的速度上限，弧度每秒。
+  double velocity_limit = 5;
+}
+
+// 连续的超限帧，间隔不超过 3 帧的合并为一段。
+message Segment {
+  uint32 start_frame = 1;
+  uint32 end_frame = 2;
+  // 按严重程度排序。
+  repeated JointHit hits = 3;
+}
+
+message JointStats {
+  uint32 over_frames = 1;
+  uint32 near_frames = 2;
+  uint32 velocity_frames = 3;
+}
+
+message AnalyzeResponse {
+  Verdict verdict = 1;
+  uint32 frame_count = 2;
+  // 以下三项是"至少一个关节出问题"的帧数。
+  uint32 over_frames = 3;
+  uint32 velocity_frames = 4;
+  uint32 near_frames = 5;
+  repeated Segment segments = 6;
+  // 与 GetRobot 的关节顺序一致。
+  repeated JointStats joints = 7;
+  // frame_count × 关节数 个字节。低 2 位为位置状态（0 正常、1 贴近、2 超限），第 3 位（值 4）为速度超限。
+  bytes frame_status = 8;
+  // 服务端计算耗时，毫秒。
+  double elapsed_ms = 9;
+}
+
+// ---------- StreamJointStates ----------
+
+// 一阶跟踪模型，用来模拟真机或仿真跟踪规划轨迹时的表现。不传时用默认值：6 Hz、40 ms、0.15°、限位生效、速度系数 0.5。
+message TrackerModel {
+  // 跟踪带宽，Hz，越大跟得越紧。
+  float bandwidth_hz = 1;
+  // 指令到执行的延迟，毫秒。
+  float latency_ms = 2;
+  // 编码器测量噪声的标准差，度。
+  float noise_deg = 3;
+  // 为 true 时实际角度不会越过 URDF 限位。
+  bool enforce_limits = 4;
+  // 实际角速度上限 = URDF velocity × 该系数；0 表示不限制。
+  float velocity_factor = 5;
+}
+
+message StreamJointStatesRequest {
+  oneof source {
+    string clip_id = 1;
+    Trajectory trajectory = 2;
+  }
+  // 推送频率，Hz。
+  float rate_hz = 3;
+  // 播放倍速。
+  float speed = 4;
+  // 从动作时间轴的哪一秒开始，秒。
+  float start_time = 5;
+  TrackerModel tracker = 6;
+  // 叠加测试偏差，与 Analyze 的规则保持一致。
+  bool inject_test_deviation = 7;
+  // 播完后从头循环。
+  bool loop = 8;
+}
+
+// 结构对应 ROS 2 的 sensor_msgs/msg/JointState。
+message JointState {
+  // 动作时间轴上的秒数。
+  double stamp = 1;
+  uint32 seq = 2;
+  // 关节名只在流的第一条消息里填写，之后的消息按同样顺序只带数值。
+  repeated string name = 3;
+  repeated double position = 4;
+  repeated double velocity = 5;
+  // 根节点位姿 x y z qx qy qz qw；动作不含根节点轨迹时为空。
+  repeated double root_pose = 6;
+}
+
+message StreamJointStatesResponse {
+  JointState state = 1;
+}

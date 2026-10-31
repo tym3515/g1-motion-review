@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+.vite/
+coverage/
+
+# Cloudflare Wrangler 本地缓存和密钥
+.wrangler/
+.dev.vars*
+.env
+.env.*

@@ -1,0 +1,19 @@
+{
+  "name": "@g1/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Node 后端：8080 端口走 HTTP/1.1（Connect、gRPC-Web，给浏览器），8081 端口走 h2c（原生 gRPC，给 grpcurl 和其他服务）",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@connectrpc/connect": "2.2.0",
+    "@connectrpc/connect-node": "2.2.0",
+    "@g1/core": "0.1.0",
+    "@g1/proto": "0.1.0",
+    "@g1/service": "0.1.0"
+  }
+}
